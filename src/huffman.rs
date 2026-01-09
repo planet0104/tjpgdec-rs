@@ -96,7 +96,7 @@ impl<'a> HuffmanTable<'a> {
         // 复制解码数据
         data.copy_from_slice(values);
 
-        let table = Self {
+        let mut table = Self {
             bits: bits_arr,
             codes,
             data,
