@@ -96,15 +96,22 @@ impl<'a> HuffmanTable<'a> {
         // 复制解码数据
         data.copy_from_slice(values);
 
+        #[cfg(feature = "fast-decode-2")]
         let mut table = Self {
             bits: bits_arr,
             codes,
             data,
             num_codes,
-            #[cfg(feature = "fast-decode-2")]
             lut: None,
-            #[cfg(feature = "fast-decode-2")]
             long_offset: 0,
+        };
+
+        #[cfg(not(feature = "fast-decode-2"))]
+        let table = Self {
+            bits: bits_arr,
+            codes,
+            data,
+            num_codes,
         };
 
         #[cfg(feature = "fast-decode-2")]
@@ -394,7 +401,7 @@ pub struct BitStream<'a> {
     pub(crate) marker_found: Option<u8>,
     
     /// JD_FASTDECODE == 0 使用的位掩码
-    #[cfg(feature = "fast-decode-0")]
+    #[cfg(not(any(feature = "fast-decode-1", feature = "fast-decode-2")))]
     pub(crate) bit_mask: u8,
 }
 
@@ -406,7 +413,7 @@ impl<'a> BitStream<'a> {
             bit_buffer: 0,
             bits_in_buffer: 0,
             marker_found: None,
-            #[cfg(feature = "fast-decode-0")]
+            #[cfg(not(any(feature = "fast-decode-1", feature = "fast-decode-2")))]
             bit_mask: 0,
         }
     }
