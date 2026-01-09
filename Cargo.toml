@@ -5,9 +5,19 @@ authors = ["JiaYe <planet2@qq.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Tiny JPEG Decompressor - A lightweight JPEG decoder optimized for embedded systems"
-repository = "https://github.com/planet0104/esp32-wifi-screen"
+repository = "https://github.com/planet0104/tjpgdec-rs"
+homepage = "https://github.com/planet0104/tjpgdec-rs"
+documentation = "https://docs.rs/tjpgdec-rs"
+readme = "README.md"
 keywords = ["jpeg", "decoder", "embedded", "no_std", "image"]
 categories = ["embedded", "multimedia::images", "no-std"]
+exclude = [
+    "tjpgd_pc/*",
+    ".github/*",
+    "target/*",
+    "*.ps1",
+    "PUBLISH_CHECKLIST.md"
+]
 
 [features]
 default = ["std", "fast-decode-1"]

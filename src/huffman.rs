@@ -1,11 +1,11 @@
-//! Huffman解码实现
+//! Huffman decoding implementation
 //! 
-//! 与C版本tjpgd完全一致的实现，支持三种优化级别：
-//! - fast-decode-0: 基础优化，适合 8/16 位 MCU
-//! - fast-decode-1: + 32 位桶移位器，适合 32 位 MCU
-//! - fast-decode-2: + Huffman 快速查找表
+//! Supports three optimization levels:
+//! - `fast-decode-0`: Basic optimization for 8/16-bit MCUs
+//! - `fast-decode-1`: 32-bit barrel shifter for 32-bit MCUs
+//! - `fast-decode-2`: Huffman fast lookup table
 //!
-//! 所有数据从用户提供的工作内存池中分配
+//! All data allocated from user-provided workspace memory pool.
 
 use crate::types::{Error, Result};
 use crate::pool::MemoryPool;
@@ -26,22 +26,21 @@ pub const HUFF_BIT: usize = 10;
 #[cfg(feature = "fast-decode-2")]
 pub const HUFF_LEN: usize = 1 << HUFF_BIT;
 
-/// Huffman表
+/// Huffman coding table
 /// 
-/// 与C版本的内存布局完全一致：
-/// - bits: 16 bytes (固定)
-/// - codes: 动态分配 (num_codes * 2 bytes)
-/// - data: 动态分配 (num_codes bytes)
-/// - lut: 可选的快速查找表 (JD_FASTDECODE == 2 时使用)
+/// - `bits`: 16 bytes (fixed)
+/// - `codes`: Dynamically allocated (num_codes * 2 bytes)
+/// - `data`: Dynamically allocated (num_codes bytes)
+/// - `lut`: Optional fast lookup table (JD_FASTDECODE == 2)
 #[derive(Debug)]
 pub struct HuffmanTable<'a> {
-    /// 每个位长度的码字数量 (1-16位)
+    /// Number of codes for each bit length (1-16 bits)
     pub bits: [u8; 16],
-    /// Huffman码字 - 从池中分配
+    /// Huffman codes (allocated from pool)
     pub codes: &'a mut [u16],
-    /// 解码数据 - 从池中分配  
+    /// Decoded data (allocated from pool)
     pub data: &'a mut [u8],
-    /// 码字总数
+    /// Total number of codes
     pub num_codes: usize,
     
     /// 快速查找表 - 从池中分配 (JD_FASTDECODE == 2)
@@ -383,9 +382,10 @@ impl<'a> HuffmanTable<'a> {
     }
 }
 
-/// 位流读取器
+/// Bit stream reader
 /// 
-/// 与C版本的位流处理完全一致
+/// Supports three optimization levels for reading variable-length Huffman codes
+/// from JPEG compressed data.
 pub struct BitStream<'a> {
     pub(crate) data: &'a [u8],
     pub(crate) pos: usize,
@@ -654,7 +654,22 @@ impl<'a> BitStream<'a> {
     }
 }
 
-/// 返回当前使用的 FASTDECODE 级别
+/// Get current optimization level
+/// 
+/// # Returns
+/// 
+/// - `0`: Basic optimization
+/// - `1`: 32-bit optimization (default)
+/// - `2`: Full optimization with LUT
+/// 
+/// # Example
+/// 
+/// ```
+/// use tjpgdec_rs::fastdecode_level;
+/// 
+/// let level = fastdecode_level();
+/// println!("Current optimization level: {}", level);
+/// ```
 pub fn fastdecode_level() -> u8 {
     FASTDECODE_LEVEL
 }

@@ -7,10 +7,9 @@ A Rust implementation of ChaN's TJpgDec library - a lightweight JPEG decoder des
 ## Features
 
 - **Lightweight**: Optimized for memory-constrained embedded systems
-- **High Performance**: Three optimization levels matching the C version exactly
+- **High Performance**: Three optimization levels available
 - **Flexible**: Support for various output formats (RGB888, RGB565, Grayscale)
 - **no_std Compatible**: Can run without the standard library
-- **C-Compatible**: Memory management matches the original C code exactly
 
 ## Supported Features
 
@@ -22,7 +21,7 @@ A Rust implementation of ChaN's TJpgDec library - a lightweight JPEG decoder des
 
 ## JD_FASTDECODE Optimization Levels
 
-Three optimization levels matching the C version exactly:
+Three optimization levels available:
 
 | Level | Feature | Description | Workspace Size | Target Platform |
 |-------|---------|-------------|----------------|-----------------|
@@ -38,14 +37,14 @@ Three optimization levels matching the C version exactly:
 use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE, Result};
 
 fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
-    // Allocate memory pool (matches C API exactly)
+    // Allocate memory pool
     let mut pool_buffer = vec![0u8; RECOMMENDED_POOL_SIZE];
     let mut pool = MemoryPool::new(&mut pool_buffer);
     
     // Create decoder
     let mut decoder = JpegDecoder::new();
     
-    // Prepare decoder (corresponds to C's jd_prepare)
+    // Prepare decoder
     decoder.prepare(jpeg_data, &mut pool)?;
     
     // Get image info
@@ -65,7 +64,7 @@ fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
     let mut framebuffer = vec![0u8; (width as usize * height as usize * 3)];
     let fb_width = width as usize;
     
-    // Decompress (corresponds to C's jd_decomp)
+    // Decompress
     decoder.decompress(
         jpeg_data,
         0,  // scale: 0=1/1, 1=1/2, 2=1/4, 3=1/8
@@ -97,7 +96,7 @@ fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
 ### ESP32 Example
 
 ```rust
-use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE};
+use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE, Result};
 
 pub fn decode_jpeg_to_rgb565(jpeg_data: &[u8]) -> Result<(u16, u16, Vec<u16>)> {
     // Allocate memory pool
@@ -155,7 +154,14 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tjpgd = { path = "path/to/tjpgd", features = ["fast-decode-2"] }
+tjpgdec-rs = "0.4.0"
+```
+
+Or with specific features:
+
+```toml
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", features = ["fast-decode-2"] }
 ```
 
 ### Feature Flags
@@ -175,26 +181,20 @@ tjpgd = { path = "path/to/tjpgd", features = ["fast-decode-2"] }
 
 **ESP32 (Recommended):**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-2"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-2"] }
 ```
 
 **Memory-Constrained 32-bit MCUs:**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-1"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-1"] }
 ```
 
 **8/16-bit MCUs (Experimental):**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-0"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-0"] }
 ```
 
 ## Memory Requirements
@@ -224,7 +224,7 @@ let mut pool = MemoryPool::new(&mut pool_buffer);
 let mut decoder = JpegDecoder::new();
 
 // Prepare decoder
-decoder.prepare(jpeg_data, &mut pool)?;
+// decoder.prepare(jpeg_data, &mut pool)?;
 
 // Get image info
 let width = decoder.width();      // Output width (after scaling)
@@ -238,7 +238,7 @@ let mcu_size = decoder.mcu_buffer_size();
 let work_size = decoder.work_buffer_size();
 
 // Decompress
-decoder.decompress(jpeg_data, scale, &mut mcu_buf, &mut work_buf, callback)?;
+// decoder.decompress(jpeg_data, scale, &mut mcu_buf, &mut work_buf, callback)?;
 ```
 
 ### Query Optimization Level
@@ -265,20 +265,27 @@ println!("Current JD_FASTDECODE level: {}", level);
 ## Project Structure
 
 ```
-tjpgd/
+tjpgdec-rs/
 ├── Cargo.toml
 ├── README.md / README.en.md
+├── CHANGELOG.md
+├── LICENSE
 ├── src/
 │   ├── lib.rs           # Library entry point
 │   ├── types.rs         # Type definitions
 │   ├── tables.rs        # Constant tables
-│   ├── huffman.rs       # Huffman decoding (supports 3 optimization levels)
+│   ├── huffman.rs       # Huffman decoding
 │   ├── idct.rs          # IDCT and color conversion
 │   ├── decoder.rs       # Main decoder
 │   └── pool.rs          # Memory pool implementation
 └── examples/
-    ├── basic.rs         # Basic usage example
-    ├── jpg2bmp.rs       # JPEG to BMP converter
+    ├── basic.rs             # Basic usage example
+    ├── jpg2bmp.rs           # JPEG to BMP converter
+    ├── jpg2bmp_pool.rs      # JPEG to BMP with memory pool
+    ├── test_info.rs         # Test image info
+    ├── test_suite.rs        # Test suite
+    ├── memory_comparison.rs # Memory usage comparison
+    ├── size_check.rs        # Buffer size check
     └── compare_outputs.ps1  # C/Rust output comparison script
 ```
 

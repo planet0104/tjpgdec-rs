@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0] - 2026-01-09
+## [0.4.0] - 2024-01-09
 
 ### Added
 - **三种 JD_FASTDECODE 优化级别**：与 C 版本完全一致
@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 - Level 1/2 测试：13/13 测试图片全部通过
 - 与 C 版本一致性：舍入误差 ≤3（每像素）
 
-## [0.3.1] - 2026-01-08
+## [0.3.1] - 2024-01-08
 
 ### Added
 - **内存节约型 API**：新增 `decompress_with_buffers()` 方法，接受外部缓冲区

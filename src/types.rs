@@ -1,4 +1,7 @@
-//! Type definitions for TJpgDec
+//! Type definitions for JPEG decoder
+//!
+//! Defines all basic types used by the decoder, including error codes,
+//! output formats, and rectangular regions.
 
 /// Result type for JPEG operations
 pub type Result<T> = core::result::Result<T, Error>;
@@ -28,6 +31,7 @@ pub enum Error {
 }
 
 impl Error {
+    /// Get error description string
     pub fn as_str(&self) -> &'static str {
         match self {
             Error::Ok => "Success",
@@ -54,23 +58,32 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 
 /// Rectangular region in the output image
+/// 
+/// Specifies pixel region in output callbacks. Coordinates are inclusive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rectangle {
+    /// Left edge X coordinate
     pub left: u16,
+    /// Right edge X coordinate
     pub right: u16,
+    /// Top edge Y coordinate
     pub top: u16,
+    /// Bottom edge Y coordinate
     pub bottom: u16,
 }
 
 impl Rectangle {
+    /// Create a new rectangular region
     pub fn new(left: u16, right: u16, top: u16, bottom: u16) -> Self {
         Self { left, right, top, bottom }
     }
 
+    /// Get rectangle width
     pub fn width(&self) -> u16 {
         self.right.saturating_sub(self.left).saturating_add(1)
     }
 
+    /// Get rectangle height
     pub fn height(&self) -> u16 {
         self.bottom.saturating_sub(self.top).saturating_add(1)
     }
@@ -80,11 +93,11 @@ impl Rectangle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum OutputFormat {
-    /// RGB888 (24-bit/pixel)
+    /// RGB888 (24-bit/pixel, 3 bytes)
     Rgb888 = 0,
-    /// RGB565 (16-bit/pixel)
+    /// RGB565 (16-bit/pixel, 2 bytes)
     Rgb565 = 1,
-    /// Grayscale (8-bit/pixel)
+    /// Grayscale (8-bit/pixel, 1 byte)
     Grayscale = 2,
 }
 
@@ -97,18 +110,19 @@ pub type YuvValue = i16;
 #[allow(dead_code)]
 pub type YuvValue = u8;
 
-/// Sampling factors
+/// Chroma subsampling pattern
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SamplingFactor {
-    /// 4:4:4 (1x1)
+    /// 4:4:4 (1x1) - Full resolution chroma
     Yuv444,
-    /// 4:2:2 (2x1)
+    /// 4:2:2 (2x1) - Half horizontal resolution
     Yuv422,
-    /// 4:2:0 (2x2)
+    /// 4:2:0 (2x2) - Half horizontal and vertical resolution
     Yuv420,
 }
 
 impl SamplingFactor {
+    /// Create from horizontal and vertical sampling factors
     pub fn from_factor(h: u8, v: u8) -> Option<Self> {
         match (h, v) {
             (1, 1) => Some(SamplingFactor::Yuv444),
@@ -118,6 +132,7 @@ impl SamplingFactor {
         }
     }
 
+    /// Get MCU width in 8x8 blocks
     pub fn mcu_width(&self) -> u8 {
         match self {
             SamplingFactor::Yuv444 => 1,
@@ -125,6 +140,7 @@ impl SamplingFactor {
         }
     }
 
+    /// Get MCU height in 8x8 blocks
     pub fn mcu_height(&self) -> u8 {
         match self {
             SamplingFactor::Yuv444 | SamplingFactor::Yuv422 => 1,

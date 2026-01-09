@@ -7,10 +7,9 @@ ChaN 的 TJpgDec 库的 Rust 实现 - 专为嵌入式系统设计的轻量级 JP
 ## 特性
 
 - **轻量级**：针对内存受限的嵌入式系统优化
-- **高性能**：三种优化级别可选，与 C 版本完全一致
+- **高性能**：三种优化级别可选
 - **灵活性**：支持多种输出格式（RGB888、RGB565、灰度）
 - **no_std 兼容**：可在无标准库环境下运行
-- **与 C 版本完全一致**：内存管理方式与原版 C 代码完全对应
 
 ## 支持的功能
 
@@ -22,7 +21,7 @@ ChaN 的 TJpgDec 库的 Rust 实现 - 专为嵌入式系统设计的轻量级 JP
 
 ## JD_FASTDECODE 优化级别
 
-与 C 版本完全一致的三种优化级别：
+三种优化级别：
 
 | Level | Feature | 描述 | 工作区大小 | 适用平台 |
 |-------|---------|------|-----------|---------|
@@ -38,14 +37,14 @@ ChaN 的 TJpgDec 库的 Rust 实现 - 专为嵌入式系统设计的轻量级 JP
 use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE, Result};
 
 fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
-    // 分配内存池（与 C 版本完全一致）
+    // 分配内存池
     let mut pool_buffer = vec![0u8; RECOMMENDED_POOL_SIZE];
     let mut pool = MemoryPool::new(&mut pool_buffer);
     
     // 创建解码器
     let mut decoder = JpegDecoder::new();
     
-    // 准备解码（对应 C 版本的 jd_prepare）
+    // 准备解码
     decoder.prepare(jpeg_data, &mut pool)?;
     
     // 获取图像信息
@@ -65,7 +64,7 @@ fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
     let mut framebuffer = vec![0u8; (width as usize * height as usize * 3)];
     let fb_width = width as usize;
     
-    // 解压缩（对应 C 版本的 jd_decomp）
+    // 解压缩
     decoder.decompress(
         jpeg_data,
         0,  // scale: 0=1/1, 1=1/2, 2=1/4, 3=1/8
@@ -97,7 +96,7 @@ fn decode_jpeg(jpeg_data: &[u8]) -> Result<()> {
 ### ESP32 示例
 
 ```rust
-use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE};
+use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE, Result};
 
 pub fn decode_jpeg_to_rgb565(jpeg_data: &[u8]) -> Result<(u16, u16, Vec<u16>)> {
     // 分配内存池
@@ -155,7 +154,14 @@ pub fn decode_jpeg_to_rgb565(jpeg_data: &[u8]) -> Result<(u16, u16, Vec<u16>)> {
 
 ```toml
 [dependencies]
-tjpgd = { path = "path/to/tjpgd", features = ["fast-decode-2"] }
+tjpgdec-rs = "0.4.0"
+```
+
+或使用特定的特性标志：
+
+```toml
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", features = ["fast-decode-2"] }
 ```
 
 ### 特性标志
@@ -175,26 +181,20 @@ tjpgd = { path = "path/to/tjpgd", features = ["fast-decode-2"] }
 
 **ESP32（推荐配置）：**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-2"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-2"] }
 ```
 
 **内存受限的 32 位 MCU：**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-1"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-1"] }
 ```
 
 **8/16 位 MCU（实验性）：**
 ```toml
-[dependencies.tjpgd]
-path = "tjpgd"
-default-features = false
-features = ["fast-decode-0"]
+[dependencies]
+tjpgdec-rs = { version = "0.4.0", default-features = false, features = ["fast-decode-0"] }
 ```
 
 ## 内存需求
@@ -224,7 +224,7 @@ let mut pool = MemoryPool::new(&mut pool_buffer);
 let mut decoder = JpegDecoder::new();
 
 // 准备解码
-decoder.prepare(jpeg_data, &mut pool)?;
+// decoder.prepare(jpeg_data, &mut pool)?;
 
 // 获取图像信息
 let width = decoder.width();      // 输出宽度（已应用缩放）
@@ -238,7 +238,7 @@ let mcu_size = decoder.mcu_buffer_size();
 let work_size = decoder.work_buffer_size();
 
 // 解压缩
-decoder.decompress(jpeg_data, scale, &mut mcu_buf, &mut work_buf, callback)?;
+// decoder.decompress(jpeg_data, scale, &mut mcu_buf, &mut work_buf, callback)?;
 ```
 
 ### 查询优化级别
@@ -265,20 +265,27 @@ println!("当前 JD_FASTDECODE 级别: {}", level);
 ## 项目结构
 
 ```
-tjpgd/
+tjpgdec-rs/
 ├── Cargo.toml
 ├── README.md / README.en.md
+├── CHANGELOG.md
+├── LICENSE
 ├── src/
 │   ├── lib.rs           # 库入口
 │   ├── types.rs         # 类型定义
 │   ├── tables.rs        # 常量表
-│   ├── huffman.rs       # Huffman 解码（支持三种优化级别）
+│   ├── huffman.rs       # Huffman 解码
 │   ├── idct.rs          # IDCT 和颜色转换
 │   ├── decoder.rs       # 主解码器
 │   └── pool.rs          # 内存池实现
 └── examples/
-    ├── basic.rs         # 基本使用示例
-    ├── jpg2bmp.rs       # JPEG 转 BMP 工具
+    ├── basic.rs             # 基本使用示例
+    ├── jpg2bmp.rs           # JPEG 转 BMP 工具
+    ├── jpg2bmp_pool.rs      # 使用内存池的 JPEG 转 BMP
+    ├── test_info.rs         # 测试图像信息
+    ├── test_suite.rs        # 测试套件
+    ├── memory_comparison.rs # 内存使用对比
+    ├── size_check.rs        # 缓冲区大小检查
     └── compare_outputs.ps1  # C/Rust 输出对比脚本
 ```
 
@@ -312,9 +319,6 @@ A:
 - **ESP32**：推荐 `fast-decode-2`（最快）或 `fast-decode-1`（节省内存）
 - **内存受限**：使用 `fast-decode-1`，工作区只需 3500 bytes
 - **8/16 位 MCU**：使用 `fast-decode-0`（实验性）
-
-### Q: 为什么输出与 C 版本略有不同？
-A: IDCT 计算中的舍入误差，通常每个像素差异 ≤3，不影响视觉效果。
 
 ### Q: 如何减少内存使用？
 A: 

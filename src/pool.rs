@@ -1,11 +1,12 @@
-//! 工作内存池实现
+//! Memory pool implementation
 //! 
-//! 与C版本的alloc_pool()完全一致的线性内存分配器
-//! 
-//! C版本实现 (tjpgd.c lines 133-150):
+//! Linear memory allocator for workspace allocation.
+//!
+//! ## Example
+//!
 //! ```c
 //! static void* alloc_pool(JDEC* jd, size_t ndata) {
-//!     ndata = (ndata + 3) & ~3;  // 4字节对齐
+//!     ndata = (ndata + 3) & ~3;  // 4-byte alignment
 //!     if (jd->sz_pool >= ndata) {
 //!         jd->sz_pool -= ndata;
 //!         rp = (char*)jd->pool;
@@ -17,28 +18,28 @@
 
 use core::mem;
 
-/// 工作内存池
+/// Memory pool for workspace allocation
 /// 
-/// 这是一个简单的线性分配器，与C版本的alloc_pool行为完全一致：
-/// - 从缓冲区头部顺序分配
-/// - 4字节对齐
-/// - 不支持释放（整个池一起释放）
+/// Simple linear allocator with the following characteristics:
+/// - Allocates sequentially from buffer start
+/// - 8-byte alignment
+/// - No individual deallocation (whole pool released together)
 pub struct MemoryPool<'a> {
-    /// 剩余可用的内存缓冲区
+    /// Remaining available memory buffer
     buffer: &'a mut [u8],
-    /// 当前分配位置
+    /// Current allocation position
     offset: usize,
 }
 
 impl<'a> MemoryPool<'a> {
-    /// 创建新的内存池
-    /// 
-    /// # Arguments
-    /// * `buffer` - 用户提供的工作内存缓冲区
+    /// Create a new memory pool
     /// 
     /// # Example
-    /// ```ignore
-    /// let mut workspace = [0u8; 10240];
+    /// 
+    /// ```
+    /// use tjpgdec_rs::MemoryPool;
+    /// 
+    /// let mut workspace = vec![0u8; 10240];
     /// let mut pool = MemoryPool::new(&mut workspace);
     /// ```
     pub fn new(buffer: &'a mut [u8]) -> Self {
@@ -48,22 +49,14 @@ impl<'a> MemoryPool<'a> {
         }
     }
 
-    /// 从池中分配内存
+    /// Allocate memory from the pool
     /// 
-    /// 与C版本alloc_pool()行为完全一致：
-    /// - 8字节对齐（为了支持64位指针和u64）
-    /// - 返回None表示内存不足
-    /// 
-    /// # Arguments
-    /// * `size` - 需要分配的字节数
-    /// 
-    /// # Returns
-    /// 分配的内存切片，如果内存不足返回None
+    /// Uses 8-byte alignment and returns `None` if insufficient memory.
     pub fn alloc(&mut self, size: usize) -> Option<&'a mut [u8]> {
         self.alloc_aligned(size, 8)
     }
 
-    /// 从池中分配指定对齐的内存
+    /// Allocate memory with specified alignment
     pub fn alloc_aligned(&mut self, size: usize, align: usize) -> Option<&'a mut [u8]> {
         // 确保当前偏移量对齐
         let align_mask = align - 1;
@@ -88,17 +81,18 @@ impl<'a> MemoryPool<'a> {
         }
     }
 
-    /// 分配并初始化为零
+    /// Allocate and initialize memory to zero
     pub fn alloc_zeroed(&mut self, size: usize) -> Option<&'a mut [u8]> {
         let slice = self.alloc(size)?;
         slice.fill(0);
         Some(slice)
     }
 
-    /// 分配类型化数组
+    /// Allocate typed array
     /// 
     /// # Safety
-    /// 调用者需要确保类型T的对齐要求不超过4字节
+    /// 
+    /// Type T's alignment requirement must not exceed 8 bytes.
     pub fn alloc_slice<T: Copy + Default>(&mut self, count: usize) -> Option<&'a mut [T]> {
         let size = count * mem::size_of::<T>();
         let slice = self.alloc(size)?;
@@ -115,52 +109,56 @@ impl<'a> MemoryPool<'a> {
         }
     }
 
-    /// 分配u8数组
+    /// Allocate u8 array
     pub fn alloc_u8(&mut self, count: usize) -> Option<&'a mut [u8]> {
         self.alloc_zeroed(count)
     }
 
-    /// 分配u16数组
+    /// Allocate u16 array
     pub fn alloc_u16(&mut self, count: usize) -> Option<&'a mut [u16]> {
         self.alloc_slice(count)
     }
 
-    /// 分配i32数组
+    /// Allocate i32 array
     pub fn alloc_i32(&mut self, count: usize) -> Option<&'a mut [i32]> {
         self.alloc_slice(count)
     }
 
-    /// 分配i16数组
+    /// Allocate i16 array
     pub fn alloc_i16(&mut self, count: usize) -> Option<&'a mut [i16]> {
         self.alloc_slice(count)
     }
 
-    /// 获取剩余可用字节数
+    /// Get remaining available bytes
     pub fn remaining(&self) -> usize {
         self.buffer.len() - self.offset
     }
 
-    /// 获取已使用字节数
+    /// Get used bytes
     pub fn used(&self) -> usize {
         self.offset
     }
 
-    /// 获取总容量
+    /// Get total capacity
     pub fn capacity(&self) -> usize {
         self.buffer.len()
     }
 
-    /// 重置池（释放所有分配）
+    /// Reset pool (release all allocations)
     pub fn reset(&mut self) {
         self.offset = 0;
     }
 }
 
 
-/// 推荐的工作内存大小（带快速解码）
+/// Recommended workspace size
+/// 
+/// Sufficient for most JPEG images, including with fast-decode-2 feature.
 pub const RECOMMENDED_POOL_SIZE: usize = 10240;
 
-/// 最小工作内存大小（不带快速解码）
+/// Minimum workspace size
+/// 
+/// For small images or extremely memory-constrained environments.
 pub const MINIMUM_POOL_SIZE: usize = 4096;
 
 #[cfg(test)]

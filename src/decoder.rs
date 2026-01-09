@@ -1,9 +1,4 @@
-//! JPEG解码器
-//! 
-//! 与C版本tjpgd完全一致的实现：
-//! - 用户提供工作内存池
-//! - 所有内部数据从池中分配
-//! - 解码器结构体本身很小（~120 bytes，与C版本JDEC一致）
+//! JPEG decoder implementation
 
 use crate::huffman::{BitStream, HuffmanTable};
 use crate::idct::{block_idct, color};
@@ -21,10 +16,28 @@ mod markers {
     pub const EOI: u8 = 0xD9;
 }
 
-/// Output callback
+/// Output callback function
+/// 
+/// Called once for each decoded MCU block during decompression.
+/// 
+/// # Parameters
+/// 
+/// * `decoder` - Reference to decoder instance
+/// * `bitmap` - RGB888 pixel data (3 bytes per pixel)
+/// * `rect` - Region corresponding to the pixel data
+/// 
+/// # Returns
+/// 
+/// * `Ok(true)` - Continue decoding
+/// * `Ok(false)` - Stop decoding
+/// * `Err(e)` - Error occurred
 pub type OutputCallback<'a> = &'a mut dyn FnMut(&JpegDecoder, &[u8], &Rectangle) -> Result<bool>;
 
-/// 计算所需的工作内存池大小
+/// Calculate required workspace memory pool size
+/// 
+/// # Returns
+/// 
+/// Recommended pool size in bytes
 pub fn calculate_pool_size(_width: u16, _height: u16, fast_decode: bool) -> usize {
     let mut size = 0usize;
     
@@ -45,9 +58,21 @@ pub fn calculate_pool_size(_width: u16, _height: u16, fast_decode: bool) -> usiz
     size.max(c_min_size)
 }
 
-/// JPEG解码器
+/// JPEG decoder
 /// 
-/// 与C版本JDEC结构体完全一致的内存布局（约120 bytes）
+/// Compact decoder structure (~120 bytes)
+/// 
+/// # Example
+/// 
+/// ```rust,no_run
+/// use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE};
+/// 
+/// let mut pool_buffer = vec![0u8; RECOMMENDED_POOL_SIZE];
+/// let mut pool = MemoryPool::new(&mut pool_buffer);
+/// let mut decoder = JpegDecoder::new();
+/// 
+/// // decoder.prepare(jpeg_data, &mut pool)?;
+/// ```
 pub struct JpegDecoder<'a> {
     pub(crate) width: u16,
     pub(crate) height: u16,
@@ -73,6 +98,9 @@ pub struct JpegDecoder<'a> {
 }
 
 impl<'a> JpegDecoder<'a> {
+    /// Create a new decoder instance
+    /// 
+    /// Creates an uninitialized decoder. Must call `prepare()` to parse JPEG headers.
     pub fn new() -> Self {
         Self {
             width: 0,
@@ -92,7 +120,28 @@ impl<'a> JpegDecoder<'a> {
         }
     }
 
-    /// 准备解码（解析JPEG头部）
+    /// Prepare decoder by parsing JPEG headers
+    /// 
+    /// Parses JPEG file headers (SOF, DHT, DQT segments) and allocates
+    /// required resources from memory pool.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `data` - JPEG file data
+    /// * `pool` - Workspace memory pool
+    /// 
+    /// # Example
+    /// 
+    /// ```rust,no_run
+    /// # use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE};
+    /// # let jpeg_data = &[];
+    /// let mut pool_buffer = vec![0u8; RECOMMENDED_POOL_SIZE];
+    /// let mut pool = MemoryPool::new(&mut pool_buffer);
+    /// let mut decoder = JpegDecoder::new();
+    /// 
+    /// decoder.prepare(jpeg_data, &mut pool)?;
+    /// # Ok::<(), tjpgdec_rs::Error>(())
+    /// ```
     pub fn prepare(&mut self, data: &[u8], pool: &mut MemoryPool<'a>) -> Result<()> {
         let mut pos = 0;
 
@@ -327,14 +376,46 @@ impl<'a> JpegDecoder<'a> {
         Ok(())
     }
 
-    /// 解压JPEG图像
+    /// Decompress JPEG image
     /// 
-    /// # Arguments
-    /// * `data` - 完整的JPEG数据
-    /// * `scale` - 缩放因子 (0-3)
-    /// * `mcu_buffer` - MCU工作缓冲区（由用户提供）
-    /// * `work_buffer` - RGB转换工作缓冲区（由用户提供）
-    /// * `callback` - 输出回调函数
+    /// Decodes JPEG data and outputs pixel data through callback function.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `data` - Complete JPEG file data
+    /// * `scale` - Scale factor (0=1/1, 1=1/2, 2=1/4, 3=1/8)
+    /// * `mcu_buffer` - MCU work buffer (provided by user)
+    /// * `work_buffer` - RGB conversion work buffer (provided by user)
+    /// * `callback` - Output callback function
+    /// 
+    /// Use `mcu_buffer_size()` and `work_buffer_size()` to get required buffer sizes.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust,no_run
+    /// # use tjpgdec_rs::{JpegDecoder, MemoryPool, RECOMMENDED_POOL_SIZE, Result};
+    /// # let jpeg_data = &[];
+    /// # let mut pool_buffer = vec![0u8; RECOMMENDED_POOL_SIZE];
+    /// # let mut pool = MemoryPool::new(&mut pool_buffer);
+    /// # let mut decoder = JpegDecoder::new();
+    /// # decoder.prepare(jpeg_data, &mut pool)?;
+    /// let mcu_size = decoder.mcu_buffer_size();
+    /// let work_size = decoder.work_buffer_size();
+    /// let mut mcu_buffer = vec![0i16; mcu_size];
+    /// let mut work_buffer = vec![0u8; work_size];
+    /// 
+    /// decoder.decompress(
+    ///     jpeg_data,
+    ///     0,  // no scaling
+    ///     &mut mcu_buffer,
+    ///     &mut work_buffer,
+    ///     &mut |_decoder, bitmap, rect| {
+    ///         // Process pixel data
+    ///         Ok(true)
+    ///     }
+    /// )?;
+    /// # Ok::<(), tjpgdec_rs::Error>(())
+    /// ```
     pub fn decompress(
         &mut self,
         data: &[u8],
@@ -408,14 +489,18 @@ impl<'a> JpegDecoder<'a> {
         Ok(())
     }
 
-    /// 获取MCU缓冲区所需大小
+    /// Get required MCU buffer size
+    /// 
+    /// Returns the number of i16 elements needed for MCU buffer.
     pub fn mcu_buffer_size(&self) -> usize {
         let mcu_width = self.sampling.mcu_width() as usize;
         let mcu_height = self.sampling.mcu_height() as usize;
         (mcu_width * mcu_height + 2) * 64
     }
 
-    /// 获取工作缓冲区所需大小
+    /// Get required work buffer size
+    /// 
+    /// Returns the number of u8 bytes needed for work buffer.
     pub fn work_buffer_size(&self) -> usize {
         let mcu_width = self.sampling.mcu_width() as usize;
         let mcu_height = self.sampling.mcu_height() as usize;
@@ -654,26 +739,29 @@ impl<'a> JpegDecoder<'a> {
         Ok(())
     }
 
-    /// 获取输出宽度（已应用缩放）
+    /// Get output width (with scaling applied)
     pub fn width(&self) -> u16 {
         self.width >> self.scale
     }
 
-    /// 获取输出高度（已应用缩放）
+    /// Get output height (with scaling applied)
     pub fn height(&self) -> u16 {
         self.height >> self.scale
     }
 
-    /// 获取原始图像宽度
+    /// Get original image width (without scaling)
     pub fn raw_width(&self) -> u16 {
         self.width
     }
 
-    /// 获取原始图像高度
+    /// Get original image height (without scaling)
     pub fn raw_height(&self) -> u16 {
         self.height
     }
 
+    /// Get number of color components
+    /// 
+    /// Returns 1 for grayscale, 3 for color images.
     pub fn components(&self) -> u8 {
         self.num_components
     }
