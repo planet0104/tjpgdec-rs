@@ -40,3 +40,12 @@ debug-huffman = ["std"]  # Enable debug output for Huffman decoding
 heapless = "0.8"
 
 [dev-dependencies]
+
+# Only include examples that don't require external image files for CI
+[[example]]
+name = "size_check"
+path = "examples/size_check.rs"
+
+[[example]]
+name = "memory_comparison"
+path = "examples/memory_comparison.rs"
